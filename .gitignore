@@ -1,0 +1,12 @@
+/00_literature/
+/03_sheets/
+/03_sheets2/
+/03_sheets3/
+/04_graph_white/
+/04_output/
+/graphs/
+/03_sheets/
+/color.csv
+/StructDetect_instruct.docx
+/src/*
+!/src/StructDetect.py

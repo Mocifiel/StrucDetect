@@ -13,6 +13,7 @@ import argparse
 import random
 from collections import defaultdict
 import numpy as np
+import pandas as pd
 import cv2
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -552,7 +553,12 @@ def establish_graph(nodesDense,HLS,VLS,DLS,raw_nodes):
     return Gstrc
 
 def exportGraph(G,filename):
-    Adj = nx.to_numpy_array(G,dtype=np.int32)
+    # Adj = nx.to_numpy_array(G,dtype=np.int32)
+    # edges
+    edge_list = list(G.edges())
+    df = pd.DataFrame(edge_list, columns=['Source', 'Target'])
+    df.to_csv(filename+'-edges.csv', index=False)
+    # nodes
     node_coord = []
     node_column= []
     for node in G.nodes(data=True):
@@ -565,10 +571,12 @@ def exportGraph(G,filename):
 
     node_column = np.array(node_column,dtype=np.int32).reshape(-1,1)
     nodeX = np.hstack((node_coord,node_column))
-    np.savetxt(filename+'-Adj.csv',Adj,delimiter=',')
-    np.savetxt(filename+'-nodeX.csv',nodeX,delimiter=',')
+    df = pd.DataFrame(nodeX, columns=['x','y','column'])
+    # np.savetxt(filename+'-Adj.csv',Adj,delimiter=',')
+    # np.savetxt(filename+'-nodes.csv',nodeX,delimiter=',',header='x y column',fmt='%d')
+    df.to_csv(filename+'-nodes.csv',index=False)
     
-    return Adj,nodeX
+    return edge_list,nodeX
 
 def draw_graph(graph,color='black',file_name=None,if_show=False):
 
@@ -684,12 +692,14 @@ if __name__ == '__main__':
     image_files = os.listdir(data_dir)
     
     for img_file in tqdm(image_files):
-        
-        # k_img = img_file[:-10]
+
         img_name = os.path.splitext(img_file)[0]
-        # print(k_img)
+
         # Read image and convert into gray
         img = cv2.imread(os.path.join(data_dir,img_file))
+        
+        # update the img_height and img_width parameters
+        img_height, img_width, _ = img.shape
         img_copy = img.copy()
         
         # Detecting columns and walls
@@ -736,7 +746,7 @@ if __name__ == '__main__':
         Gstrc = establish_graph(nodesDense,HLS,VLS,DLS,raw_nodes)
         
         # export graph
-        adj,nodeX = exportGraph(Gstrc,os.path.join(sheet_dir,img_name))
+        edges,nodeX = exportGraph(Gstrc,os.path.join(sheet_dir,img_name))
         
         # draw graph
         draw_graph(Gstrc,color ='#2F5597',file_name = os.path.join(graph_dir,img_name))
