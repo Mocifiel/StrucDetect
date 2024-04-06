@@ -9,37 +9,20 @@ Created on Wed Aug  2 10:15:27 2023
 """
 
 import os
+import argparse
+import random
+from collections import defaultdict
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import networkx as nx
-import random
-from collections import defaultdict
+from tqdm import tqdm
+
 
 ######### FIXED PARAMETERS ######### 
 PI = np.pi
-img_width = 1280
-img_height = 640
-# colors = np.loadtxt('../02_data/color.csv',dtype=np.int32,delimiter=',')
-# colors = colors[:,[2,1,0]]
 
-
-########## VARIED PARAMETERS #######
-# name of image
-# k_img = '18' 
-# parameters for connecting lines
-beam_width = 8
-colu_width = 15
-if_detect_diag_line = 1
-degGap = 6
-# parameters for finding intersection nodes
-max_dist = 24
-# parameters for deleting clustered nodes 
-clstRad = 15
-
-
-
-def detect_walls(img,if_show = False):
+def detect_walls(img,img_height=640,img_width=1280,if_show = False):
     img = img.copy()
     white = 255*np.ones((img_height,img_width,3),dtype=np.uint8)
     
@@ -62,11 +45,9 @@ def detect_walls(img,if_show = False):
         # cv2.rectangle(white,(x,y),(x+w,y+h),(0,255,0),1)
     
     if if_show:
-        cv2.imwrite('columns.png',white)
-        cv2.imshow('thresh',white)
+        cv2.imshow('walls_detected',white)
         cv2.waitKey()
         cv2.destroyAllWindows()
-        print('walls')
     return thresh
 
 def detect_columns(img):
@@ -108,14 +89,14 @@ def delete_walls(img, if_show=False):
     erosion = cv2.erode(inverse,kernel,iterations = 1)
     
     if if_show:
-        cv2.imshow('thresh',gray+erosion)
+        cv2.imshow('wall_deleted',gray+erosion)
         cv2.waitKey()
         cv2.destroyAllWindows()
         
     
     return gray+erosion
 
-def draw_ori_lines(img,lines):
+def draw_ori_lines(img,lines,img_height=640,img_width=1280):
     imgCopy = img.copy()
     white = 255*np.ones((img_height,img_width,3),dtype=np.uint8)
     id_clus=0
@@ -130,14 +111,13 @@ def draw_ori_lines(img,lines):
             color_cur = (grey_cur,grey_cur,grey_cur)
             cv2.line(white,(x1,y1),(x2,y2),color_cur,1,cv2.LINE_AA)
             id_clus += 1
-    cv2.imwrite('84-lines-ori.png',white)
-    cv2.imshow('lines_ori',white)
+    cv2.imshow('original_lines',white)
     cv2.waitKey()
     cv2.destroyAllWindows()
     
     return 
 
-def draw_cnt_lines(img,HLS,VLS,DLS):
+def draw_cnt_lines(img,HLS,VLS,DLS,img_height=640,img_width=1280):
 
     imgCopy = img.copy()
     white = 255*np.ones((img_height,img_width,3),dtype=np.uint8)
@@ -166,12 +146,11 @@ def draw_cnt_lines(img,HLS,VLS,DLS):
                 # color_cur = (int(colors[id_clus % 10,0]),int(colors[id_clus % 10,1]),int(colors[id_clus % 10,2]))
                 cv2.line(white,(x1,y1),(x2,y2),color_cur,2,cv2.LINE_AA)
                 id_clus += 1
-    cv2.imwrite('84-lines.png',white)
-    cv2.imshow('lines',white)
+    cv2.imshow('connected_lines',white)
     cv2.waitKey()
     cv2.destroyAllWindows()
 
-def preprocess_lines(lines):
+def preprocess_lines(lines,deg_gap=6):
 
     # Divide the lines into Horizontal lines, Vertical lines and Diagonal lines
     Hlines = []
@@ -209,7 +188,7 @@ def preprocess_lines(lines):
     degTot = 0
     degAvg = 0
     for deg in sorted(dlinesDeg):
-        if len(dlines) <1 or deg-degAvg < degGap:
+        if len(dlines) <1 or deg-degAvg < deg_gap:
             dlines.append(dlinesDeg[deg])
             degTot += deg
         else:
@@ -334,7 +313,7 @@ def connect_lines(Lines,beam_width = 10, max_dist = 15, deg =0):
     else:
         return None
 
-def connect_all_lines(Hlines,Vlines,dlinesDict):
+def connect_all_lines(Hlines,Vlines,dlinesDict,beam_width=8,colu_width=15,disable_detect_diag_line=False):
     HLS = connect_lines(Hlines,beam_width=beam_width,max_dist=colu_width)
     VLS = connect_lines(Vlines,beam_width=beam_width,max_dist=colu_width,deg=90)
     DLS = {}
@@ -343,7 +322,7 @@ def connect_all_lines(Hlines,Vlines,dlinesDict):
         if DLS[deg] is None:
             DLS.pop(deg)
     
-    if not if_detect_diag_line: DLS={}
+    if disable_detect_diag_line: DLS={}
     
     return HLS, VLS, DLS
 
@@ -380,7 +359,7 @@ def Intersection(line1:tuple,line2:tuple,maxDist=35)->tuple:
     else:
         return None
 
-def find_intersection_node(HLS,VLS,DLS):
+def find_intersection_node(HLS,VLS,DLS,max_dist=24):
     Nodes = []
     edgesDict = {}
     # 为每条线初始化一个字典，key是tuple
@@ -448,7 +427,7 @@ def find_intersection_node(HLS,VLS,DLS):
     
     return Nodes, nodesDict, edgesDict
 
-def delete_dupli_nodes(Nodes,nodesDict,edgesDict):
+def delete_dupli_nodes(Nodes,nodesDict,edgesDict,img_width=1280,clst_radius=15):
     
 
     nodeCLST = defaultdict(list)
@@ -462,7 +441,7 @@ def delete_dupli_nodes(Nodes,nodesDict,edgesDict):
                 minDist = nodeDist
                 centID = centroid
         # 如果当前节点和某一个节点聚类的质心距离小于阈值，就将其归入该聚类中，并更新该聚类的质心
-        if minDist < clstRad:
+        if minDist < clst_radius:
             # 计算新的质心
             n = len(nodeCLST[centID])
             xAvg = np.int32((centID[0]*n + node[0])/(n+1))
@@ -500,7 +479,7 @@ def delete_dupli_nodes(Nodes,nodesDict,edgesDict):
     
     return nodesDense
 
-def draw_nodes(nodesDense,thresh,if_show = False):
+def draw_nodes(nodesDense,thresh,if_show = False,img_height=640,img_width=1280):
     # draw nodes
     img_nodes = 255*np.ones((img_height,img_width),dtype=np.uint8)
     # radius = 10
@@ -512,6 +491,7 @@ def draw_nodes(nodesDense,thresh,if_show = False):
         cv2.rectangle(img_nodes,(x-edge_len,y-edge_len),(x+edge_len,y+edge_len),(0,0,0),-1)
     
     raw_nodes = cv2.bitwise_and(thresh, 255-img_nodes)
+
     if if_show:
         cv2.imshow('nodes',img_nodes)
         cv2.waitKey()
@@ -590,7 +570,7 @@ def exportGraph(G,filename):
     
     return Adj,nodeX
 
-def draw_graph(graph,color='black',file_name=None):
+def draw_graph(graph,color='black',file_name=None,if_show=False):
 
     # draw graphs
     # nx.draw_networkx(graph)
@@ -661,36 +641,63 @@ def draw_graph(graph,color='black',file_name=None):
     plt.axis('off')
     ax.set_aspect('equal')
     # 显示图形
-    plt.show()
+    if if_show: plt.show()
     fig.savefig(file_name+'.svg')#,dpi=300,transparent=True)
+    plt.close(fig)
 
     
 if __name__ == '__main__':
     
-    data_dir = '../02_data/' # 输入的structual layout images
-    sheet_dir = '../03_sheets_3/' # 输出的adj 和 nodex的文件夹
-    graph_dir = '../04_output/' # 输出的graph vector plot 的文件夹
+
+    parser = argparse.ArgumentParser(description="strucDetect")
+    parser.add_argument("--data_dir", type=str, default="../data/", help="Input structural layout image directory")
+    parser.add_argument("--sheet_dir",type=str, default="../sheets/", help="Output adjacency and node feature directory")
+    parser.add_argument("--graph_dir",type=str, default="../graphs/", help="Output graph vector and image plot directory")
+    parser.add_argument("--img_width",type=int, default=1280, help="width of input images in pixel")
+    parser.add_argument("--img_height",type=int,default=640,  help="height of input images in pixel")
+    parser.add_argument("--beam_width",type=int,default=8, help="parameter for connecting the detected lines")
+    parser.add_argument("--colu_width",type=int,default=15,help="parameter for connecting the detected lines")
+    parser.add_argument("--disable_detect_diag_line",action="store_true", help="disable detecting diagonal lines")
+    parser.add_argument("--deg_gap",type=int, default=6, help="the resolution used to categorize line segments by angle, measured in degrees")
+    parser.add_argument("--max_dist",type=int,default=24,help="the threshold for determining whether two lines intersect")
+    parser.add_argument("--clst_radius",type=int,default=15,help="the threshold used to aggregate nodes together")
+    parser.add_argument("--enable_show_intermediate_result",action="store_true", help="enable showing intermeidate results")
+    args = parser.parse_args()
+
+    data_dir = args.data_dir
+    sheet_dir = args.sheet_dir
+    graph_dir = args.graph_dir
+    img_width = args.img_width
+    img_height = args.img_height
+    beam_width = args.beam_width
+    colu_width = args.colu_width
+    disable_detect_diag_line=args.disable_detect_diag_line
+    deg_gap = args.deg_gap
+    max_dist = args.max_dist
+    clst_radius = args.clst_radius
+    enable_show_intermediate_result = args.enable_show_intermediate_result
     
-    if not os.path.exists(sheet_dir):
-        os.makedirs(sheet_dir)
-    if not os.path.exists(graph_dir):
-        os.makedirs(graph_dir)
+    
+    os.makedirs(sheet_dir,exist_ok=True)
+    os.makedirs(graph_dir,exist_ok=True)
     
     image_files = os.listdir(data_dir)
     
-    for img_file in image_files:
+    for img_file in tqdm(image_files):
         
-        k_img = img_file[:-10]
-        print(k_img)
+        # k_img = img_file[:-10]
+        img_name = os.path.splitext(img_file)[0]
+        # print(k_img)
         # Read image and convert into gray
         img = cv2.imread(os.path.join(data_dir,img_file))
         img_copy = img.copy()
         
         # Detecting columns and walls
-        thresh = detect_walls(img)
+        thresh = detect_walls(img,img_height=img_height,img_width=img_width,
+                              if_show=enable_show_intermediate_result)
         
         # Detecting lines
-        gray = delete_walls(img)
+        gray = delete_walls(img,if_show=enable_show_intermediate_result)
         
         # Create default parametrization LSD
         lsd = cv2.createLineSegmentDetector(0)
@@ -703,29 +710,33 @@ if __name__ == '__main__':
         # draw_ori_lines(img,lines)
         
         # preprocess lines
-        Hlines, Vlines, dlinesDict = preprocess_lines(lines)
+        Hlines, Vlines, dlinesDict = preprocess_lines(lines,deg_gap=deg_gap)
         
         # connect lines
-        HLS,VLS,DLS = connect_all_lines(Hlines,Vlines,dlinesDict)
+        HLS,VLS,DLS = connect_all_lines(Hlines,Vlines,dlinesDict,beam_width=beam_width,colu_width=colu_width,
+                                        disable_detect_diag_line=disable_detect_diag_line)
         
         # draw connected lines
-        # draw_cnt_lines(img,HLS,VLS,DLS)
+        if enable_show_intermediate_result:
+            draw_cnt_lines(img,HLS,VLS,DLS,img_height=img_height,img_width=img_width)
         
         # find intersection nodes
-        Nodes, nodesDict,edgesDict = find_intersection_node(HLS,VLS,DLS)
+        Nodes, nodesDict,edgesDict = find_intersection_node(HLS,VLS,DLS,max_dist=max_dist)
         
         # delete duplicated nodes (nodesDict and edgesDict are merely edited in the 
         # following function, thus they donot need to be returned.)
-        nodesDense = delete_dupli_nodes(Nodes,nodesDict,edgesDict)
+        nodesDense = delete_dupli_nodes(Nodes,nodesDict,edgesDict,img_width=img_width,clst_radius=clst_radius)
         
         # draw nodes
-        img_nodes,raw_nodes = draw_nodes(nodesDense,thresh)
-                
+        img_nodes,raw_nodes = draw_nodes(nodesDense,thresh,img_height=img_height,img_width=img_width,
+                                         if_show=enable_show_intermediate_result)
+            
+
         # establish graph
         Gstrc = establish_graph(nodesDense,HLS,VLS,DLS,raw_nodes)
         
         # export graph
-        adj,nodeX = exportGraph(Gstrc,os.path.join(sheet_dir,k_img))
+        adj,nodeX = exportGraph(Gstrc,os.path.join(sheet_dir,img_name))
         
         # draw graph
-        draw_graph(Gstrc,color ='#2F5597',file_name = os.path.join(graph_dir,k_img))
+        draw_graph(Gstrc,color ='#2F5597',file_name = os.path.join(graph_dir,img_name))
