@@ -1,5 +1,6 @@
 # StrucDetect
 将结构拓扑像素图转化为对应的图表征的工具
+![](assets/strucDetect.png)
 ## 用法
 git clone https://github.com/Mocifiel/StrucDetect.git  
 cd StrucDetect  
@@ -12,15 +13,15 @@ python StrucDetect.py --data_dir ../data --sheet_dir ../sheets/ --graph_dir ../g
 - data_dir: type=str, 存放结构拓扑像素图的路径, default="../data/"
 - sheet_dir: type=str, 输出图表征的节点特征文件和边列表文件的路径, default="../sheets/"
 - graph_dir: type=str, 输出图表征的可视化svg文件的路径, default="../graphs/"
-- img_width: type=int, default=1280, help="width of input images in pixel, default 1280"
-- img_height: type=int,default=640,  help="height of input images in pixel, default 640"
-- beam_width: type=int,default=8, help="parameter for connecting the detected lines, default 8"
-- colu_width: type=int,default=15,help="parameter for connecting the detected lines, default 15"
-- disable_detect_diag_line: action="store_true", help="disable detecting diagonal lines, default False"
-- deg_gap: type=int, default=6, help="the resolution used to categorize line segments by angle, measured in degrees, default 6"
-- max_dist: type=int,default=24,help="the threshold for determining whether two lines intersect, default 24"
-- clst_radius: type=int,default=15,help="the threshold used to aggregate nodes together, default 15"
-- enable_show_intermediate_result: action="store_true", help="enable showing intermeidate results, default False"
+- img_width: type=int, 输入像素图的宽度
+- img_height: type=int, 输入像素图的高度
+- beam_width: type=int, 用以连接线段的参数，default=8
+- colu_width: type=int, 用以连接线段的参数，default=15
+- disable_detect_diag_line: type=bool, 是否关闭检测斜向线段功能，default=False
+- deg_gap: type=int, 用以将线段按角度分类的分辨率，单位deg, default=6
+- max_dist: type=int, 判断两条线是否相交的阈值，default=24
+- clst_radius: type=int, 用来将节点聚合的阈值，default=15
+- enable_show_intermediate_result: type=bool, 是否显示中间过程，default=False
 
 
 

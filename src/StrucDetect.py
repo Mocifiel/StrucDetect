@@ -578,7 +578,7 @@ def exportGraph(G,filename):
     
     return edge_list,nodeX
 
-def draw_graph(graph,color='black',file_name=None,if_show=False):
+def draw_graph(graph,color='black',file_name=None,if_show=False,output_fig_fmt='png'):
 
     # draw graphs
     # nx.draw_networkx(graph)
@@ -650,7 +650,13 @@ def draw_graph(graph,color='black',file_name=None,if_show=False):
     ax.set_aspect('equal')
     # 显示图形
     if if_show: plt.show()
-    fig.savefig(file_name+'.svg')#,dpi=300,transparent=True)
+    if output_fig_fmt == 'png':
+        fig.savefig(file_name+'.png',dpi=300,transparent=True)
+    elif output_fig_fmt == 'svg':
+        fig.savefig(file_name+'.svg')
+    else:
+        raise ValueError(f"Unsupported file format: {output_fig_fmt}")
+
     plt.close(fig)
 
     
@@ -670,6 +676,7 @@ if __name__ == '__main__':
     parser.add_argument("--max_dist",type=int,default=24,help="the threshold for determining whether two lines intersect, default 24")
     parser.add_argument("--clst_radius",type=int,default=15,help="the threshold used to aggregate nodes together, default 15")
     parser.add_argument("--enable_show_intermediate_result",action="store_true", help="enable showing intermeidate results, default False")
+    parser.add_argument("--output_fig_fmt",type=str,default="png", help="can also output svg files")
     args = parser.parse_args()
 
     data_dir = args.data_dir
@@ -684,6 +691,7 @@ if __name__ == '__main__':
     max_dist = args.max_dist
     clst_radius = args.clst_radius
     enable_show_intermediate_result = args.enable_show_intermediate_result
+    output_fig_fmt = args.output_fig_fmt
     
     
     os.makedirs(sheet_dir,exist_ok=True)
@@ -749,4 +757,5 @@ if __name__ == '__main__':
         edges,nodeX = exportGraph(Gstrc,os.path.join(sheet_dir,img_name))
         
         # draw graph
-        draw_graph(Gstrc,color ='#2F5597',file_name = os.path.join(graph_dir,img_name))
+        draw_graph(Gstrc,color ='#2F5597',file_name = os.path.join(graph_dir,img_name),
+                   output_fig_fmt=output_fig_fmt)
